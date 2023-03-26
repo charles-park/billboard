@@ -18,11 +18,27 @@
 #include <SPI.h>
 #include <lib_fb.h>
 
+#include <NTPClient.h>
+#include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
+
+//------------------------------------------------------------------------------
+const char *ssid     = "charles";
+const char *password = "charles.park";
+
+const long utcOffsetInSeconds = 3600;
+
+
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+// Define NTP Client to get time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+
 //------------------------------------------------------------------------------
 // number of dot matrix(8x8), default
-#define MATRIX_MODULE_COUNT     32 
-//#define MATRIX_MODULE_LINES     2
-#define MATRIX_MODULE_LINES     4
+#define MATRIX_MODULE_COUNT     8 
+#define MATRIX_MODULE_LINES     2
 
 static int MatrixModuleCount = MATRIX_MODULE_COUNT;
 static int MatrixModuleLines = MATRIX_MODULE_LINES;
@@ -56,6 +72,12 @@ const unsigned char MatrixInitCmd[][2] = {
 };   
 
 #define ARRAY_COUNT(x)  (sizeof(x) / sizeof(x[0]))
+
+/* 32 x 16 */
+const unsigned char MatrixMap[MATRIX_MODULE_COUNT] = {
+     0,  1,  2,  3,  4,  5,  6,  7,
+};
+
 //------------------------------------------------------------------------------
 void spi_write (void *buf, int size)
 {
@@ -101,6 +123,10 @@ void matrix_init (void)
         }
         spi_write(pSpiBuffer, MatrixModuleCount * 2);
     }
+    delay(10);
+
+    memset (pMatrixFb, 0x00, sizeof(pMatrixFb));
+    matrix_update();
 }
 
 //------------------------------------------------------------------------------
@@ -113,6 +139,59 @@ void matrix_test (void)
 }
 
 //------------------------------------------------------------------------------
+void convert_to_matrix (fb_info_t *fb_info, int start_x, int start_y)
+{
+    int x, y, pos, x_bits, y_bits, module_x_cnt, matrix_fb_x, matrix_fb_y;
+    fb_color_u *fb = (fb_color_u *)fb_info->data;
+
+    unsigned char bit_mask = 0x80;
+
+    module_x_cnt = MATRIX_MODULE_MAX / MatrixModuleLines;
+
+    x_bits = (module_x_cnt      * 8);
+    y_bits = (MatrixModuleLines * 8);
+
+    memset(pMatrixFb, 0x00, sizeof(pMatrixFb));
+    for (y = 0; y < y_bits; y++) {
+        for (x = 0, bit_mask = 0x80; x < x_bits; x++) {
+//          MatrixFb[(y / 8) * (x축 모듈갯수) + (x / 8)][y % 8] |= (fb[pos].uint != 0 ? bit_mask : 0);
+            matrix_fb_x = (y / 8) * module_x_cnt + (x / 8);
+            matrix_fb_y = (y % 8);
+
+            /* Matrix position find from MatrixMap table */
+            matrix_fb_x = MatrixMap[matrix_fb_x];
+            if (((start_x + x) > fb_info->w) || ((start_x + x) < 0) ||
+                ((start_y + y) > fb_info->h) || ((start_y + y) < 0)) {
+                pMatrixFb[matrix_fb_x][matrix_fb_y] |= 0;
+            } else {
+                pos = ((y + start_y) * fb_info->w) + (x + start_x);
+                fb[pos].bits.a = 0;
+                pMatrixFb[matrix_fb_x][matrix_fb_y] |= (fb[pos].uint != 0 ? bit_mask : 0);
+            }
+            bit_mask >>= 1;
+            if (!bit_mask)
+                bit_mask = 0x80;
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+int my_strlen (char *str)
+{
+    int cnt = 0, err = strlen(str) +1;
+
+    /* utf-8 에서 한글표현은 3바이트 */
+    while ((*str != 0x00) && err--) {
+        if (*str & 0x80) {
+            str += 3;   cnt += 2;
+        } else {
+            str += 1;   cnt++;
+        }
+    }
+    return cnt;
+}
+
+//------------------------------------------------------------------------------//------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 fb_info_t *FbInfo;
 
@@ -131,19 +210,42 @@ void setup()
 
     matrix_init();
 
-    FbInfo = fb_init (128, 32, 32);
+    WiFi.begin(ssid, password);
+
+    while ( WiFi.status() != WL_CONNECTED ) {
+        delay ( 500 );
+        Serial.print ( "." );
+    }
+
+    timeClient.begin();                 // NTP 클라이언트 초기화
+    timeClient.setTimeOffset(32400);    // 한국은 GMT+9이므로 9*3600=32400
+    timeClient.update();
+    FbInfo = fb_init (256, 32, 32);
 }
 
-int i = 0;
+char buf[128];
+int s1 = 0, x = 0;
 void loop()
 {
-    Serial.println(i);
+    timeClient.update();
 
-    matrix_test();
-    digitalWrite(2, 1);
-    delay(500);
-    digitalWrite(2, 0);
-    delay(500);
+    memset(buf, 0x00, sizeof(buf));
+    sprintf(buf, "%d시 %d분 %d초 입니다.", 
+            timeClient.getHours(),
+            timeClient.getMinutes(),
+            timeClient.getSeconds());
+
+    fb_clear (FbInfo);
+    s1 = draw_text (FbInfo, 0, 0, 1, 0, 1, "%s", buf);
+    for (x = 0; x < s1; x++) {
+draw_text (FbInfo, 0, 16, 1, 0, 1, "%s", buf);
+        convert_to_matrix (FbInfo, x, 0);
+        matrix_update ();
+        delay(30);
+        digitalWrite(2, 1);
+        delay(30);
+        digitalWrite(2, 0);
+    }
 }
 
 //------------------------------------------------------------------------------

@@ -13,18 +13,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <string.h>
-#include <limits.h>
-#include <unistd.h>
-#include <errno.h>
-#include <time.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-// #include <sys/ioctl.h>
-// #include <sys/mman.h>
-// #include <linux/fb.h>
-#include <getopt.h>
 
 #include "lib_fb.h"
 //-----------------------------------------------------------------------------
@@ -78,9 +66,14 @@ const char D_ML[22] = { 0, 0, 2, 0, 2, 1, 2, 1, 2, 3, 0, 2, 1, 3, 3, 1, 2, 1, 3,
 const char D_FM[40] = { 1, 3, 0, 2, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 0, 2, 1, 3, 1, 3, 1, 3 			};
 const char D_MF[44] = { 0, 0, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 1, 6, 3, 7, 3, 7, 3, 7, 1, 6, 2, 6, 4, 7, 4, 7, 4, 7, 2, 6, 1, 6, 3, 7, 0, 5 };
 
+static unsigned char *HANFONT1 = (unsigned char *)FONT_HANSOFT1;
+static unsigned char *HANFONT2 = (unsigned char *)FONT_HANSOFT2;
+static unsigned char *HANFONT3 = (unsigned char *)FONT_HANSOFT3;
+#if 0
 static unsigned char *HANFONT1 = (unsigned char *)FONT_HANGUL1;
 static unsigned char *HANFONT2 = (unsigned char *)FONT_HANGUL2;
 static unsigned char *HANFONT3 = (unsigned char *)FONT_HANGUL3;
+#endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
