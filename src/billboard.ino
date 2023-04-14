@@ -22,14 +22,22 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 
+#include <umm_malloc/umm_heap_select.h>
+
 //------------------------------------------------------------------------------
-const char *ssid     = "charles";
-const char *password = "charles.park";
+#define OFFICE_BILLBOARD
+
+#if defined(OFFICE_BILLBOARD)
+    const char *ssid     = "Charles_2.4G";
+    const char *password = "hard4624";
+#else   // Home AP
+    const char *ssid     = "charles";
+    const char *password = "charles.park";
+#endif
 
 const long utcOffsetInSeconds = 3600;
 
-
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+const char daysOfTheWeek[7][11] = {"일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"};
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -37,8 +45,23 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
 //------------------------------------------------------------------------------
 // number of dot matrix(8x8), default
-#define MATRIX_MODULE_COUNT     8 
-#define MATRIX_MODULE_LINES     2
+#if defined(OFFICE_BILLBOARD)
+    #define MATRIX_MODULE_COUNT     32
+    #define MATRIX_MODULE_LINES     4
+#else
+    #define MATRIX_MODULE_COUNT     8
+    #define MATRIX_MODULE_LINES     2
+#endif
+
+/* 32 x 16 */
+const unsigned char MatrixMap[MATRIX_MODULE_COUNT] = {
+     0,  1,  2,  3,  4,  5,  6,  7,
+#if defined(OFFICE_BILLBOARD)
+     8,  9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22, 23,
+    24, 25, 26, 27, 28, 29, 30, 31,
+#endif
+};
 
 static int MatrixModuleCount = MATRIX_MODULE_COUNT;
 static int MatrixModuleLines = MATRIX_MODULE_LINES;
@@ -72,11 +95,6 @@ const unsigned char MatrixInitCmd[][2] = {
 };   
 
 #define ARRAY_COUNT(x)  (sizeof(x) / sizeof(x[0]))
-
-/* 32 x 16 */
-const unsigned char MatrixMap[MATRIX_MODULE_COUNT] = {
-     0,  1,  2,  3,  4,  5,  6,  7,
-};
 
 //------------------------------------------------------------------------------
 void spi_write (void *buf, int size)
@@ -191,15 +209,12 @@ int my_strlen (char *str)
     return cnt;
 }
 
-//------------------------------------------------------------------------------//------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 fb_info_t *FbInfo;
 
 void setup() 
 {
-//    pinMode(15, OUTPUT);
-//    digitalWrite(15, 1);
-
+    // Board LED초기화. 동작상황 표시함.
     pinMode(2,  OUTPUT);
 
     Serial.begin(115200);
@@ -220,25 +235,47 @@ void setup()
     timeClient.begin();                 // NTP 클라이언트 초기화
     timeClient.setTimeOffset(32400);    // 한국은 GMT+9이므로 9*3600=32400
     timeClient.update();
-    FbInfo = fb_init (256, 32, 32);
+
+    // 32bits로 FB구현시 메모리 부족현상이 나타남.
+    // 아래 내용이 최대치임. 최대치를 넘는 경우 시스템 reset되어짐.
+    FbInfo = fb_init (220, 32, 32);
 }
 
-char buf[128];
-int s1 = 0, x = 0;
+char buf[64];
+int s, s1, s2, x = 0;
 void loop()
 {
     timeClient.update();
 
+    fb_clear (FbInfo);
+
     memset(buf, 0x00, sizeof(buf));
-    sprintf(buf, "%d시 %d분 %d초 입니다.", 
+    sprintf(buf, "현재시간은 %d시 %d분 %d초",
             timeClient.getHours(),
             timeClient.getMinutes(),
             timeClient.getSeconds());
-
-    fb_clear (FbInfo);
     s1 = draw_text (FbInfo, 0, 0, 1, 0, 1, "%s", buf);
-    for (x = 0; x < s1; x++) {
-draw_text (FbInfo, 0, 16, 1, 0, 1, "%s", buf);
+
+    s2 = timeClient.getDay();
+    memset(buf, 0x00, sizeof(buf));
+    sprintf(buf, "오늘은 %s 입니다.",
+            daysOfTheWeek[s2]);
+    s2 = draw_text (FbInfo, 0, 16, 1, 0, 1, "%s", buf);
+
+    convert_to_matrix (FbInfo, 0, 0);
+    matrix_update ();
+    delay(1000);
+    printf ("s1 = %d, s2 = %d\r\n", s1, s2);
+
+    HeapSelectIram ephemeral;
+    Serial.printf("IRAM free: %6d bytes\r\n", ESP.getFreeHeap());
+    {
+        HeapSelectDram ephemeral;
+        Serial.printf("DRAM free: %6d bytes\r\n", ESP.getFreeHeap());
+    }
+
+    s = s1 > s2 ? s1 : s2;
+    for (x = 0; x < s; x++) {
         convert_to_matrix (FbInfo, x, 0);
         matrix_update ();
         delay(30);
