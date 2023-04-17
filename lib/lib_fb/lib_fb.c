@@ -5,27 +5,57 @@
  * @brief Framebuffer control library
  * @version 0.1
  * @date 2022-05-10
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 //-----------------------------------------------------------------------------
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "lib_fb.h"
 //-----------------------------------------------------------------------------
 // Fonts
 //-----------------------------------------------------------------------------
-#include "fonts/FontHangul.h"
-#include "fonts/FontHansoft.h"
-#include "fonts/FontHanboot.h"
-#include "fonts/FontHangodic.h"
-#include "fonts/FontHanpil.h"
-#include "fonts/FontHangodic.h"
+#if defined(FONT_HANBOOT)
+    #include "fonts/FontHanboot.h"
+    #define SET_FONT1   FONT_HANBOOT1
+    #define SET_FONT2   FONT_HANBOOT2
+    #define SET_FONT3   FONT_HANBOOT3
+#elif defined(FONT_HANGODIC)
+    #include "fonts/FontHangodic.h"
+    #define SET_FONT1   FONT_HANGODIC1
+    #define SET_FONT2   FONT_HANGODIC2
+    #define SET_FONT3   FONT_HANGODIC3
+#elif defined(FONT_HANSOFT)
+    #include "fonts/FontHansoft.h"
+    #define SET_FONT1   FONT_HANSOFT1
+    #define SET_FONT2   FONT_HANSOFT2
+    #define SET_FONT3   FONT_HANSOFT3
+#elif defined(FONT_HANGUL1)
+    #include "fonts/FontHangul.h"
+    #define SET_FONT1   FONT_HANGUL1
+    #define SET_FONT2   FONT_HANGUL2
+    #define SET_FONT3   FONT_HANGUL3
+#elif defined(FONT_HANPIL)
+    #include "fonts/FontHanpil.h"
+    #define SET_FONT1   FONT_HANPIL1
+    #define SET_FONT2   FONT_HANPIL2
+    #define SET_FONT3   FONT_HANPIL3
+#else
+    #include "fonts/FontHansoft.h"
+    #define SET_FONT1   FONT_HANSOFT1
+    #define SET_FONT2   FONT_HANSOFT2
+    #define SET_FONT3   FONT_HANSOFT3
+#endif
+
 #include "fonts/FontAscii_8x16.h"
 #include "fonts/FontAscii_8x8.h"
+
+#define dmsg(fmt, args...) printf("\r%s(%d):"fmt"\r", __func__, __LINE__, ##args)
+//#define dmsg
 
 //-----------------------------------------------------------------------------
 // Function prototype define.
@@ -37,24 +67,18 @@ static unsigned char *get_hangul_image( unsigned char HAN1,
                                         unsigned char HAN2,
                                         unsigned char HAN3);
 static void draw_hangul_bitmap (fb_info_t *fb,
-                    int x, int y, unsigned char *p_img,
-                    int f_color, int b_color, int scale);
+                        int x, int y, unsigned char *p_img, int scale);
 static void draw_ascii_bitmap (fb_info_t *fb,
-                    int x, int y, unsigned char *p_img,
-                    int f_color, int b_color, int scale);
-static int  _draw_text (fb_info_t *fb, int x, int y, char *p_str,
-                        int f_color, int b_color, int scale);
+                        int x, int y, unsigned char *p_img, int scale);
+static int  _draw_text (fb_info_t *fb, int x, int y, char *p_str, int scale);
+//static int  _draw_text (fb_info_t *fb, int x, int y, char *p_str, int scale, int reverse);
+int          get_pixel (fb_info_t *fb, int x, int y);
 void         put_pixel (fb_info_t *fb, int x, int y, int color);
-int          draw_text (fb_info_t *fb, int x, int y,
-                     int f_color, int b_color, int scale, char *fmt, ...);
-void         draw_line (fb_info_t *fb, int x, int y, int w, int color);
-void         draw_rect (fb_info_t *fb, int x, int y, int w, int h, int lw, int color);
-void         draw_fill_rect (fb_info_t *fb, int x, int y, int w, int h, int color);
-void         set_font(enum eFONTS_HANGUL s_font);
-void         fb_clear (fb_info_t *fb);
+int          draw_text (fb_info_t *fb, int x, int y, int scale, char *fmt, ...);
+void         fb_clear  (fb_info_t *fb);
 
 /* for virutal frame buffer */
-fb_info_t    *fb_init (int width, int height, int bpp);
+fb_info_t    *fb_init (int width, int height);
 void         fb_close (fb_info_t *fb);
 
 //-----------------------------------------------------------------------------
@@ -66,14 +90,10 @@ const char D_ML[22] = { 0, 0, 2, 0, 2, 1, 2, 1, 2, 3, 0, 2, 1, 3, 3, 1, 2, 1, 3,
 const char D_FM[40] = { 1, 3, 0, 2, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 0, 2, 1, 3, 1, 3, 1, 3 			};
 const char D_MF[44] = { 0, 0, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 0, 5, 1, 6, 3, 7, 3, 7, 3, 7, 1, 6, 2, 6, 4, 7, 4, 7, 4, 7, 2, 6, 1, 6, 3, 7, 0, 5 };
 
-static unsigned char *HANFONT1 = (unsigned char *)FONT_HANSOFT1;
-static unsigned char *HANFONT2 = (unsigned char *)FONT_HANSOFT2;
-static unsigned char *HANFONT3 = (unsigned char *)FONT_HANSOFT3;
-#if 0
-static unsigned char *HANFONT1 = (unsigned char *)FONT_HANGUL1;
-static unsigned char *HANFONT2 = (unsigned char *)FONT_HANGUL2;
-static unsigned char *HANFONT3 = (unsigned char *)FONT_HANGUL3;
-#endif
+/* default font */
+static unsigned char *HANFONT1 = (unsigned char *)SET_FONT1;
+static unsigned char *HANFONT2 = (unsigned char *)SET_FONT2;
+static unsigned char *HANFONT3 = (unsigned char *)SET_FONT3;
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -121,39 +141,33 @@ static unsigned char *get_hangul_image( unsigned char HAN1,
     if (f)  {   make_image(         1, HANFontImage, HANFONT1 + (f1*16 + f1 *4 + f) * 32);    first_flag = 0; }
     if (m)  {   make_image(first_flag, HANFontImage, HANFONT2 + (        f2*22 + m) * 32);    first_flag = 0; }
     if (l)  {   make_image(first_flag, HANFontImage, HANFONT3 + (f3*32 - f3 *4 + l) * 32);    first_flag = 0; }
-
     return HANFontImage;
+}
+
+//-----------------------------------------------------------------------------
+int get_pixel (fb_info_t *fb, int x, int y)
+{
+    int offset = (y * fb->stride) + x, bit_offset = y % 8;
+
+    return  (fb->data[offset] & (0x01 << bit_offset)) ? 1 : 0;
 }
 
 //-----------------------------------------------------------------------------
 void put_pixel (fb_info_t *fb, int x, int y, int color)
 {
-    fb_color_u c;
-    int offset = (y * fb->stride) + (x * (fb->bpp >> 3));
+    int offset = (y * fb->stride) + x, bit_offset = y % 8;
 
     if ((x < fb->w) && (y < fb->h)) {
-        c.uint = color;
-        if (fb->is_bgr) {
-            *(fb->data + offset) = c.bits.b;  offset++;
-            *(fb->data + offset) = c.bits.g;  offset++;
-            *(fb->data + offset) = c.bits.r;  offset++;
-        } else {
-            *(fb->data + offset) = c.bits.r;  offset++;
-            *(fb->data + offset) = c.bits.g;  offset++;
-            *(fb->data + offset) = c.bits.b;  offset++;
-        }
-        if (fb->bpp == 32)
-            *(fb->data + offset) = 0xFF;
+        fb->data[offset] |= color ? (0x01 << bit_offset) : 0;
     } else {
-        fprintf(stdout, "Out of range.(width = %d, x = %d, height = %d, y = %d)\n", 
+        dmsg ("Out of range.(width = %d, x = %d, height = %d, y = %d)\n",
             fb->w, x, fb->h, y);
     }
 }
 
 //-----------------------------------------------------------------------------
 static void draw_hangul_bitmap (fb_info_t *fb,
-                    int x, int y, unsigned char *p_img,
-                    int f_color, int b_color, int scale)
+                    int x, int y, unsigned char *p_img, int scale)
 {
     int pos, i, j, mask, x_off, y_off, scale_y, scale_x;
 
@@ -164,10 +178,8 @@ static void draw_hangul_bitmap (fb_info_t *fb,
             for (x_off = 0, j = 0; j < 2; j++) {
                 for (mask = 0x80; mask > 0; mask >>= 1) {
                     for (scale_x = 0; scale_x < scale; scale_x++) {
-                        int c;
-                        c = (p_img[pos] & mask) ? f_color : b_color;
-
-                        put_pixel(fb, x + x_off, y + y_off, c);
+                        put_pixel(fb, x + x_off, y + y_off,
+                                    (p_img[pos] & mask) ? 1 : 0);
                         x_off++;
                     }
                 }
@@ -180,8 +192,7 @@ static void draw_hangul_bitmap (fb_info_t *fb,
 
 //-----------------------------------------------------------------------------
 static void draw_ascii_bitmap (fb_info_t *fb,
-                    int x, int y, unsigned char *p_img,
-                    int f_color, int b_color, int scale)
+                    int x, int y, unsigned char *p_img, int scale)
 {
     int pos, mask, x_off, y_off, scale_y, scale_x;
 
@@ -189,10 +200,8 @@ static void draw_ascii_bitmap (fb_info_t *fb,
         for (scale_y = 0; scale_y < scale; scale_y++) {
             for (x_off = 0, mask = 0x80; mask > 0; mask >>= 1) {
                 for (scale_x = 0; scale_x < scale; scale_x++) {
-                    int c;
-                    c = (p_img[pos] & mask) ? f_color : b_color;
-
-                    put_pixel(fb, x + x_off, y + y_off, c);
+                    put_pixel(fb, x + x_off, y + y_off,
+                                (p_img[pos] & mask) ? 1 : 0);
                     x_off++;
                 }
             }
@@ -202,14 +211,13 @@ static void draw_ascii_bitmap (fb_info_t *fb,
 }
 
 //-----------------------------------------------------------------------------
-static int _draw_text (fb_info_t *fb, int x, int y, char *p_str,
-                        int f_color, int b_color, int scale)
+static int _draw_text (fb_info_t *fb, int x, int y, char *p_str, int scale)
 {
     unsigned char *p_img;
     unsigned char c1, c2, c3;
     int start_x = x;
 
-    while(*p_str) { 
+    while(*p_str) {
         c1 = *(unsigned char *)p_str++;
 
         //---------- 한글 ---------
@@ -220,23 +228,22 @@ static int _draw_text (fb_info_t *fb, int x, int y, char *p_str,
             c3 = *(unsigned char *)p_str++;
 
             p_img = get_hangul_image(c1, c2, c3);
-            draw_hangul_bitmap(fb, x, y, p_img, f_color, b_color, scale);
+            draw_hangul_bitmap(fb, x, y, p_img, scale);
             x = x + FONT_HANGUL_WIDTH * scale;
         }
         //---------- ASCII ---------
         else {
             p_img = (unsigned char *)FONT_ASCII[c1];
-            draw_ascii_bitmap(fb, x, y, p_img, f_color, b_color, scale);
+            draw_ascii_bitmap(fb, x, y, p_img, scale);
             x = x + FONT_ASCII_WIDTH * scale;
         }
     }
-    printf("%s : image x return size = %d\n", __func__, x - start_x);
+    dmsg("image x return size = %d\n", x - start_x);
     return (x - start_x);
 }
 
 //-----------------------------------------------------------------------------
-int draw_text (fb_info_t *fb, int x, int y,
-                int f_color, int b_color, int scale, char *fmt, ...)
+int draw_text (fb_info_t *fb, int x, int y, int scale, char *fmt, ...)
 {
     char buf[256];
     va_list va;
@@ -247,105 +254,36 @@ int draw_text (fb_info_t *fb, int x, int y,
     vsprintf(buf, fmt, va);
     va_end(va);
 
-    return _draw_text(fb, x, y, buf, f_color, b_color, scale);
+    return _draw_text(fb, x, y, buf, scale);
 }
 
 //-----------------------------------------------------------------------------
-void draw_line (fb_info_t *fb, int x, int y, int w, int color)
-{
-    int dx;
-
-    for (dx = 0; dx < w; dx++)
-        put_pixel(fb, x + dx, y, color);
-}
-
-//-----------------------------------------------------------------------------
-void draw_rect (fb_info_t *fb, int x, int y, int w, int h, int lw, int color)
-{
-	int dy, i;
-
-	for (dy = 0; dy < h; dy++) {
-        if (dy < lw || (dy > (h - lw -1)))
-            draw_line (fb, x, y + dy, w, color);
-        else {
-            for (i = 0; i < lw; i++) {
-                put_pixel (fb, x + 0    +i, y + dy, color);
-                put_pixel (fb, x + w -1 -i, y + dy, color);
-            }
-        }
-	}
-}
-
-//-----------------------------------------------------------------------------
-void draw_fill_rect (fb_info_t *fb, int x, int y, int w, int h, int color)
-{
-	int dy;
-
-	for (dy = 0; dy < h; dy++)
-        draw_line(fb, x, y + dy, w, color);
-}
-
-//-----------------------------------------------------------------------------
-void set_font(enum eFONTS_HANGUL s_font)
-{
-    switch(s_font)
-    {
-        case    eFONT_HANBOOT:
-            HANFONT1 = (unsigned char *)FONT_HANBOOT1;
-            HANFONT2 = (unsigned char *)FONT_HANBOOT2;
-            HANFONT3 = (unsigned char *)FONT_HANBOOT3;
-        break;
-        case    eFONT_HANGODIC:
-            HANFONT1 = (unsigned char *)FONT_HANGODIC1;
-            HANFONT2 = (unsigned char *)FONT_HANGODIC2;
-            HANFONT3 = (unsigned char *)FONT_HANGODIC3;
-        break;
-        case    eFONT_HANPIL:
-            HANFONT1 = (unsigned char *)FONT_HANPIL1;
-            HANFONT2 = (unsigned char *)FONT_HANPIL2;
-            HANFONT3 = (unsigned char *)FONT_HANPIL3;
-        break;
-        case    eFONT_HANSOFT:
-            HANFONT1 = (unsigned char *)FONT_HANSOFT1;
-            HANFONT2 = (unsigned char *)FONT_HANSOFT2;
-            HANFONT3 = (unsigned char *)FONT_HANSOFT3;
-        break;
-        case    eFONT_HAN_DEFAULT:
-        default :
-            HANFONT1 = (unsigned char *)FONT_HANGUL1;
-            HANFONT2 = (unsigned char *)FONT_HANGUL2;
-            HANFONT3 = (unsigned char *)FONT_HANGUL3;
-        break;
-    }
-}
-
 //-----------------------------------------------------------------------------
 void fb_clear (fb_info_t *fb)
 {
-    memset(fb->data, 0x00, (fb->w * fb->h * fb->bpp) / 8);
+    memset(fb->data, 0x00, fb->size);
 }
 
 //-----------------------------------------------------------------------------
-fb_info_t *fb_init (int width, int height, int bpp)
+fb_info_t *fb_init (int width, int height)
 {
     fb_info_t   *fb = (fb_info_t *)malloc(sizeof(fb_info_t));
 
     if (fb == NULL) {
-        fprintf(stdout, "ERROR: framebuffer malloc error!\n");
+        dmsg("ERROR: framebuffer malloc error!\n");
         return NULL;
     }
 	memset(fb, 0, sizeof(fb_info_t));
 
 	fb->w       = width;
 	fb->h       = height;
-	fb->bpp     = bpp;
-	fb->stride  = width * (bpp / 8);
+    fb->stride  = fb->w / 8;
+    fb->size    = fb->stride * fb->h;
 
-    fb->base = fb->data = (char *)malloc(fb->stride * fb->h);
+    fb->data = (char *)malloc(fb->size);
     if (fb->data == NULL)
         goto out;
 
-    fb->fd = VFD_MAGIC_FD;
     fb_clear (fb);
     return  fb;
 out:
@@ -356,10 +294,6 @@ out:
 //-----------------------------------------------------------------------------
 void fb_close (fb_info_t *fb)
 {
-    if (fb->fd != VFD_MAGIC_FD)
-        return;
-
-    fb->fd = -1;
     if (fb->data)
         free (fb->data);
 }

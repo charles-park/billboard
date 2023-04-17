@@ -92,7 +92,7 @@ const unsigned char MatrixInitCmd[][2] = {
     {0x0f,0x00},
     /* Display Test Mode Operation (D0 = 1)*/
 //    {0x0f,0x01},
-};   
+};
 
 #define ARRAY_COUNT(x)  (sizeof(x) / sizeof(x[0]))
 
@@ -159,8 +159,7 @@ void matrix_test (void)
 //------------------------------------------------------------------------------
 void convert_to_matrix (fb_info_t *fb_info, int start_x, int start_y)
 {
-    int x, y, pos, x_bits, y_bits, module_x_cnt, matrix_fb_x, matrix_fb_y;
-    fb_color_u *fb = (fb_color_u *)fb_info->data;
+    int x, y, x_bits, y_bits, module_x_cnt, matrix_fb_x, matrix_fb_y;
 
     unsigned char bit_mask = 0x80;
 
@@ -172,7 +171,7 @@ void convert_to_matrix (fb_info_t *fb_info, int start_x, int start_y)
     memset(pMatrixFb, 0x00, sizeof(pMatrixFb));
     for (y = 0; y < y_bits; y++) {
         for (x = 0, bit_mask = 0x80; x < x_bits; x++) {
-//          MatrixFb[(y / 8) * (x축 모듈갯수) + (x / 8)][y % 8] |= (fb[pos].uint != 0 ? bit_mask : 0);
+            // MatrixFb[(y / 8) * (x축 모듈갯수) + (x / 8)][y % 8] |= (fb[pos].uint != 0 ? bit_mask : 0);
             matrix_fb_x = (y / 8) * module_x_cnt + (x / 8);
             matrix_fb_y = (y % 8);
 
@@ -182,9 +181,8 @@ void convert_to_matrix (fb_info_t *fb_info, int start_x, int start_y)
                 ((start_y + y) > fb_info->h) || ((start_y + y) < 0)) {
                 pMatrixFb[matrix_fb_x][matrix_fb_y] |= 0;
             } else {
-                pos = ((y + start_y) * fb_info->w) + (x + start_x);
-                fb[pos].bits.a = 0;
-                pMatrixFb[matrix_fb_x][matrix_fb_y] |= (fb[pos].uint != 0 ? bit_mask : 0);
+                pMatrixFb[matrix_fb_x][matrix_fb_y] |=
+                        (get_pixel (fb_info, x + start_x, y + start_y) ? bit_mask : 0);
             }
             bit_mask >>= 1;
             if (!bit_mask)
@@ -212,7 +210,7 @@ int my_strlen (char *str)
 //------------------------------------------------------------------------------
 fb_info_t *FbInfo;
 
-void setup() 
+void setup()
 {
     // Board LED초기화. 동작상황 표시함.
     pinMode(2,  OUTPUT);
@@ -235,10 +233,7 @@ void setup()
     timeClient.begin();                 // NTP 클라이언트 초기화
     timeClient.setTimeOffset(32400);    // 한국은 GMT+9이므로 9*3600=32400
     timeClient.update();
-
-    // 32bits로 FB구현시 메모리 부족현상이 나타남.
-    // 아래 내용이 최대치임. 최대치를 넘는 경우 시스템 reset되어짐.
-    FbInfo = fb_init (220, 32, 32);
+    FbInfo = fb_init (1920, 32);
 }
 
 char buf[64];
@@ -254,13 +249,15 @@ void loop()
             timeClient.getHours(),
             timeClient.getMinutes(),
             timeClient.getSeconds());
-    s1 = draw_text (FbInfo, 0, 0, 1, 0, 1, "%s", buf);
+    s1 = draw_text (FbInfo, 0, 0, 1, "%s", buf);
 
     s2 = timeClient.getDay();
+
     memset(buf, 0x00, sizeof(buf));
     sprintf(buf, "오늘은 %s 입니다.",
             daysOfTheWeek[s2]);
-    s2 = draw_text (FbInfo, 0, 16, 1, 0, 1, "%s", buf);
+
+    s2 = draw_text (FbInfo, 0, 16, 1, "%s", buf);
 
     convert_to_matrix (FbInfo, 0, 0);
     matrix_update ();
@@ -268,11 +265,32 @@ void loop()
     printf ("s1 = %d, s2 = %d\r\n", s1, s2);
 
     HeapSelectIram ephemeral;
-    Serial.printf("IRAM free: %6d bytes\r\n", ESP.getFreeHeap());
+    Serial.printf("\rIRAM free: %6d bytes\r\n", ESP.getFreeHeap());
     {
         HeapSelectDram ephemeral;
-        Serial.printf("DRAM free: %6d bytes\r\n", ESP.getFreeHeap());
+        Serial.printf("\rDRAM free: %6d bytes\r\n", ESP.getFreeHeap());
     }
+#if 0   /* Frmaebuffer debug */
+{
+    int x, y;
+    printf("\n\r");
+    for (y = 0; y < 32; y++) {
+        for(x = 0; x < 80; x++) {
+            if (get_pixel (FbInfo, x, y))   printf("#");
+            else                            printf(".");
+        }
+        printf("\n\r");
+    }
+    printf("\n\r");
+    for (y = 0; y < 16; y++) {
+        for (x = 0x80; x != 0; x >>= 1) {
+            if (pMatrixFb[0][y] & x)    printf("#");
+            else                        printf(".");
+        }
+        printf("\n\r");
+    }
+}
+#endif
 
     s = s1 > s2 ? s1 : s2;
     for (x = 0; x < s; x++) {
