@@ -179,7 +179,7 @@ void convert_to_matrix (fb_info_t *fb_info, int start_x, int start_y)
             matrix_fb_x = MatrixMap[matrix_fb_x];
             if (((start_x + x) > fb_info->w) || ((start_x + x) < 0) ||
                 ((start_y + y) > fb_info->h) || ((start_y + y) < 0)) {
-                pMatrixFb[matrix_fb_x][matrix_fb_y] |= 0;
+                pMatrixFb[matrix_fb_x][matrix_fb_y] &= ~(bit_mask);
             } else {
                 pMatrixFb[matrix_fb_x][matrix_fb_y] |=
                         (get_pixel (fb_info, x + start_x, y + start_y) ? bit_mask : 0);
@@ -236,14 +236,21 @@ void setup()
     FbInfo = fb_init (1920, 32);
 }
 
-char buf[64];
-int s, s1, s2, x = 0;
+char buf[256];
+int s, s1, s2, x = 0, f = 0;
 void loop()
 {
     timeClient.update();
 
     fb_clear (FbInfo);
+#if 0
+    s1 = draw_text (FbInfo, 0, 0,  1, "%s", "한");
+    /* if scale = 0 then ascii 8x8 font */
+    s2 = draw_text (FbInfo, 0, 16, 0, "%s", "A");
+    s2 = draw_text (FbInfo, 0, 24, 0, "%s", "a");
+#endif
 
+#if 1
     memset(buf, 0x00, sizeof(buf));
     sprintf(buf, "현재시간은 %d시 %d분 %d초",
             timeClient.getHours(),
@@ -252,24 +259,25 @@ void loop()
     s1 = draw_text (FbInfo, 0, 0, 1, "%s", buf);
 
     s2 = timeClient.getDay();
-
     memset(buf, 0x00, sizeof(buf));
     sprintf(buf, "오늘은 %s 입니다.",
             daysOfTheWeek[s2]);
-
     s2 = draw_text (FbInfo, 0, 16, 1, "%s", buf);
+#endif
 
     convert_to_matrix (FbInfo, 0, 0);
     matrix_update ();
     delay(1000);
     printf ("s1 = %d, s2 = %d\r\n", s1, s2);
-
-    HeapSelectIram ephemeral;
-    Serial.printf("\rIRAM free: %6d bytes\r\n", ESP.getFreeHeap());
     {
-        HeapSelectDram ephemeral;
-        Serial.printf("\rDRAM free: %6d bytes\r\n", ESP.getFreeHeap());
+        HeapSelectIram ephemeral;
+        Serial.printf("\rIRAM free: %6d bytes\r\n", ESP.getFreeHeap());
+        {
+            HeapSelectDram ephemeral;
+            Serial.printf("\rDRAM free: %6d bytes\r\n", ESP.getFreeHeap());
+        }
     }
+
 #if 0   /* Frmaebuffer debug */
 {
     int x, y;
@@ -291,7 +299,7 @@ void loop()
     }
 }
 #endif
-
+#if 1
     s = s1 > s2 ? s1 : s2;
     for (x = 0; x < s; x++) {
         convert_to_matrix (FbInfo, x, 0);
@@ -301,6 +309,7 @@ void loop()
         delay(30);
         digitalWrite(2, 0);
     }
+#endif
 }
 
 //------------------------------------------------------------------------------

@@ -34,26 +34,21 @@ typedef struct fb_info__t {
 #define FONT_ASCII_WIDTH    8
 #define FONT_HEIGHT         16
 
-//------------------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-extern int          get_pixel 	(fb_info_t *fb, int x, int y);
-extern void         put_pixel 	(fb_info_t *fb, int x, int y, int color);
-extern int          draw_text 	(fb_info_t *fb, int x, int y, int scale, char *fmt, ...);
-extern void         draw_line 	(fb_info_t *fb, int x, int y, int w);
-extern void         draw_rect 	(fb_info_t *fb, int x, int y, int w, int h, int lw);
-extern void         draw_fill_rect (fb_info_t *fb, int x, int y, int w, int h);
-extern void         fb_clear 	(fb_info_t *fb);
+//-----------------------------------------------------------------------------
+extern int         get_pixel   (fb_info_t *fb, int x, int y);
+extern void        put_pixel   (fb_info_t *fb, int x, int y, int color);
+extern int         draw_text   (fb_info_t *fb, int x, int y, int scale, char *fmt, ...);
+extern void        fb_clear    (fb_info_t *fb);
 
+extern fb_info_t   *fb_init (int width, int height);
+extern void        fb_close (fb_info_t *fb);
 //-----------------------------------------------------------------------------
-/* File discripter macgic number for Virutal framebuffer  */
-//-----------------------------------------------------------------------------
-extern fb_info_t    *fb_init 	(int width, int height);
-extern void         fb_close   (fb_info_t *fb);
 
 #ifdef  __cplusplus
 }
 #endif
-//------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 #endif  // #define __LIB_FB_H__
-//------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
