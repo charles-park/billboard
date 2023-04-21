@@ -218,7 +218,7 @@ void setup()
     Serial.begin(115200);
 
     SPI.begin();
-    SPI.setFrequency(1000000);
+    SPI.setFrequency(10000000);
     SPI.setHwCs(true);
 
     matrix_init();
@@ -233,16 +233,14 @@ void setup()
     timeClient.begin();                 // NTP 클라이언트 초기화
     timeClient.setTimeOffset(32400);    // 한국은 GMT+9이므로 9*3600=32400
     timeClient.update();
-    FbInfo = fb_init (1920, 32);
 }
 
-char buf[256];
+char buf[512];
 int s, s1, s2, x = 0, f = 0;
 void loop()
 {
     timeClient.update();
 
-    fb_clear (FbInfo);
 #if 0
     s1 = draw_text (FbInfo, 0, 0,  1, "%s", "한");
     /* if scale = 0 then ascii 8x8 font */
@@ -250,7 +248,30 @@ void loop()
     s2 = draw_text (FbInfo, 0, 24, 0, "%s", "a");
 #endif
 
-#if 1
+    memset(buf, 0x00, sizeof(buf));
+    sprintf(buf, "ntp client로 얻어온 현재시간은 %d시 %d분 %d초 %s 입니다. %s",
+            timeClient.getHours(),
+            timeClient.getMinutes(),
+            timeClient.getSeconds(),
+            daysOfTheWeek[(int)timeClient.getDay()],
+            "경기도 안양시만안구 석수2동 온도 17도, 습도 80%, 구름많음, 바람 북서방향 0.7m/s 입니다.");
+    /* dynamic fb size test : fb x bits = my_strlen * char x bits(8) * scale(2) */
+    FbInfo = fb_init (my_strlen(buf) * 8 * 2, 32);
+    fb_clear (FbInfo);
+    s1 = draw_text (FbInfo, 0, 0, 2, "%s", buf);
+
+#if 0
+    sprintf(buf, "ntp client로 얻어온 현재시간은 %d시 %d분 %d초 %s 입니다.",
+            timeClient.getHours(),
+            timeClient.getMinutes(),
+            timeClient.getSeconds(),
+            daysOfTheWeek[(int)timeClient.getDay()]);
+    s1 = draw_text (FbInfo, 0, 0, 1, "%s", buf);
+    s2 = draw_text (FbInfo, 0, 16, 1, "%s",
+        "경기도 안양시만안구 석수2동 온도 17도, 습도 80%, 구름많음, 바람 북서방향 0.7m/s 입니다.");
+#endif
+
+#if 0
     memset(buf, 0x00, sizeof(buf));
     sprintf(buf, "현재시간은 %d시 %d분 %d초",
             timeClient.getHours(),
@@ -264,7 +285,6 @@ void loop()
             daysOfTheWeek[s2]);
     s2 = draw_text (FbInfo, 0, 16, 1, "%s", buf);
 #endif
-
     convert_to_matrix (FbInfo, 0, 0);
     matrix_update ();
     delay(1000);
@@ -304,13 +324,15 @@ void loop()
     for (x = 0; x < s; x++) {
         convert_to_matrix (FbInfo, x, 0);
         matrix_update ();
-        delay(30);
+        delay(10);
         digitalWrite(2, 1);
-        delay(30);
+        delay(10);
         digitalWrite(2, 0);
     }
+    fb_close(FbInfo);
 #endif
 }
 
+//"경기도 안양시만안구 석수2동 온도 17도, 습도 80%, 구름많음, 바람 북서방향 0.7m/s 입니다."
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
