@@ -25,6 +25,15 @@
 #include <umm_malloc/umm_heap_select.h>
 
 //------------------------------------------------------------------------------
+// weather check
+#include <lib_weather.h>
+
+//경기도 안양시만안구 석수2동 Rss
+//http://www.kma.go.kr/wid/queryDFSRSS.jsp?zone=4117160000
+WiFiClient	Client;
+lib_weather weather(&Client, "/wid/queryDFSRSS.jsp?zone=4117160000");
+
+//------------------------------------------------------------------------------
 #define OFFICE_BILLBOARD
 
 #if defined(OFFICE_BILLBOARD)
@@ -247,14 +256,36 @@ void loop()
     s2 = draw_text (FbInfo, 0, 16, 0, "%s", "A");
     s2 = draw_text (FbInfo, 0, 24, 0, "%s", "a");
 #endif
+#if 0   // weather class test
+{
+    String *Temp = weather.getData(W_DATA_TEMP);
 
+    Serial.printf("%s\r\n", Temp->c_str());
+    Serial.println(*Temp);
+
+    String *Ws = weather.getData(W_DATA_WS);
+
+    Serial.printf("%3.1f\r\n", atof(Ws->c_str()));
+    Serial.println(*Ws);
+
+    String *WfKor = weather.getData(W_DATA_WF_KOR);
+    Serial.println(*WfKor);
+}
+#endif
+
+    String *Temp = weather.getData(W_DATA_TEMP);
+    Serial.println(*Temp);
+    String *WfKor = weather.getData(W_DATA_WF_KOR);
+    Serial.println(*WfKor);
     memset(buf, 0x00, sizeof(buf));
-    sprintf(buf, "ntp client로 얻어온 현재시간은 %d시 %d분 %d초 %s 입니다. %s",
+    sprintf(buf, "현재시간은 %d시 %d분 %d초 %s 입니다. 온도는 %s도 날씨는 %s입니다.",
             timeClient.getHours(),
             timeClient.getMinutes(),
             timeClient.getSeconds(),
             daysOfTheWeek[(int)timeClient.getDay()],
-            "경기도 안양시만안구 석수2동 온도 17도, 습도 80%, 구름많음, 바람 북서방향 0.7m/s 입니다.");
+            Temp->c_str(),
+            WfKor->c_str());
+//            "경기도 안양시만안구 석수2동 온도 17도, 습도 80%, 구름많음, 바람 북서방향 0.7m/s 입니다.");
     /* dynamic fb size test : fb x bits = my_strlen * char x bits(8) * scale(2) */
     FbInfo = fb_init (my_strlen(buf) * 8 * 2, 32);
     fb_clear (FbInfo);
