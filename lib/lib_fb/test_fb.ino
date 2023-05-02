@@ -1,10 +1,10 @@
 //------------------------------------------------------------------------------
 /**
- * @file billboard.c
+ * @file test_fb.c
  * @author charles-park (charles.park@hardkernel.com)
  * @brief Dot-Matrix Billboard Application.(esp8266 d1_mini)
  * @version 0.1
- * @date 2023-03-24
+ * @date 2023-04-27
  *
  * @copyright Copyright (c) 2022
  *
@@ -23,15 +23,6 @@
 #include <WiFiUdp.h>
 
 #include <umm_malloc/umm_heap_select.h>
-
-//------------------------------------------------------------------------------
-// weather check
-#include <lib_weather.h>
-
-//경기도 안양시만안구 석수2동 Rss
-//http://www.kma.go.kr/wid/queryDFSRSS.jsp?zone=4117160000
-WiFiClient	Client;
-lib_weather weather(&Client, "석수2동", "/wid/queryDFSRSS.jsp?zone=4117160000");
 
 //------------------------------------------------------------------------------
 #define OFFICE_BILLBOARD
@@ -163,7 +154,6 @@ void matrix_test (void)
 
     memset(pMatrixFb, mem_value--, sizeof(pMatrixFb));
     matrix_update ();
-    delay(500);
 }
 
 //------------------------------------------------------------------------------
@@ -218,6 +208,8 @@ int my_strlen (char *str)
 }
 
 //------------------------------------------------------------------------------
+fb_info_t *FbInfo;
+
 void setup()
 {
     // Board LED초기화. 동작상황 표시함.
@@ -230,7 +222,7 @@ void setup()
     SPI.setHwCs(true);
 
     matrix_init();
-#if 0
+
     WiFi.begin(ssid, password);
 
     while ( WiFi.status() != WL_CONNECTED ) {
@@ -240,70 +232,65 @@ void setup()
     timeClient.begin();                 // NTP 클라이언트 초기화
     timeClient.setTimeOffset(32400);    // 한국은 GMT+9이므로 9*3600=32400
     timeClient.update();
-#endif
 }
 
-//------------------------------------------------------------------------------
 char buf[512];
 int s, s1, s2, x = 0, f = 0;
-fb_info_t *FbInfo;
-
-//------------------------------------------------------------------------------
 void loop()
 {
-    matrix_test ();
-#if 0
     timeClient.update();
-    /* fixed fb test */
+
+#if 0
+    s1 = draw_text (FbInfo, 0, 0,  1, "%s", "한");
+    /* if scale = 0 then ascii 8x8 font */
+    s2 = draw_text (FbInfo, 0, 16, 0, "%s", "A");
+    s2 = draw_text (FbInfo, 0, 24, 0, "%s", "a");
+#endif
+#if 1
+    memset(buf, 0x00, sizeof(buf));
+    sprintf(buf, "ntp client로 얻어온 현재시간은 %d시 %d분 %d초 %s 입니다.%s",
+            timeClient.getHours(),
+            timeClient.getMinutes(),
+            timeClient.getSeconds(),
+            daysOfTheWeek[(int)timeClient.getDay()],
+            "경기도 안양시만안구 석수2동 온도 17도, 습도 80%, 구름많음, 바람 북서방향 0.7m/s 입니다.");
+    /* dynamic fb size test : fb x bits = my_strlen * char x bits(8) * scale(2) */
+    FbInfo = fb_init (my_strlen(buf) * 8 * 2, 32);
+    fb_clear (FbInfo);
+    s1 = draw_text (FbInfo, 0, 0, 2, "%s", buf);
+#endif
+
+#if 0
     FbInfo = fb_init (1920, 32);
-    {
-        unsigned long long epochTime = timeClient.getEpochTime();
-        /*
-            tm_sec: seconds after the minute;
-            tm_min: minutes after the hour;
-            tm_hour: hours since midnight;
-            tm_mday: day of the month;
-            tm_year: years since 1900;
-            tm_wday: days since Sunday;
-            tm_yday: days since January 1;
-            tm_isdst: Daylight Saving Time flag;
-        */
-        struct tm *ptm = gmtime ((time_t *)&epochTime);
+    sprintf(buf, "ntp client로 얻어온 현재시간은 %d시 %d분 %d초 %s 입니다.",
+            timeClient.getHours(),
+            timeClient.getMinutes(),
+            timeClient.getSeconds(),
+            daysOfTheWeek[(int)timeClient.getDay()]);
+    s1 = draw_text (FbInfo, 0, 0, 1, "%s", buf);
+    s2 = draw_text (FbInfo, 0, 16, 1, "%s",
+        "경기도 안양시만안구 석수2동 온도 17도, 습도 80%, 구름많음, 바람 북서방향 0.7m/s 입니다.");
 
-        memset(buf, 0x00, sizeof(buf));
-        sprintf(buf, "NTP Server 현재시간 : %d년 %d월 %d일, %d시 %d분 %d초 %s.",
-                ptm->tm_year + 1900,
-                ptm->tm_mon+1,
-                ptm->tm_mday,
-                timeClient.getHours(),
-                timeClient.getMinutes(),
-                timeClient.getSeconds(),
-                daysOfTheWeek[(int)timeClient.getDay()]);
-        s1 = draw_text (FbInfo, 0, 0, 1, "%s", buf);
-    }
-    {
-        String *Temp = weather.getData(W_DATA_TEMP);
-        String *Reh = weather.getData(W_DATA_REH);
-        String *WfKor = weather.getData(W_DATA_WF_KOR);
-        String *WdKor = weather.getData(W_DATA_WD_KOR);
-        String *Ws = weather.getData(W_DATA_WS);
-        String *Pop = weather.getData(W_DATA_POP);
+    fb_clear (FbInfo);
+    s1 = draw_text (FbInfo, 0, 0, 2, "%s", buf);
+#endif
 
-        memset(buf, 0x00, sizeof(buf));
-        sprintf(buf, "%s 날씨 : 온도 %s도, 습도 %s%%, 풍향 %s, 풍속 %3.1fm/s, 강수확률 %s%%, 하늘 %s.",
-                weather.getLocation(),
-                Temp->c_str(),
-                Reh->c_str(),
-                WdKor->c_str(),
-                atof(Ws->c_str()),
-                Pop->c_str(),
-                WfKor->c_str()
-                );
-        s2 = draw_text (FbInfo, 0, 16, 1, "%s", buf);
-    }
+#if 0
+    memset(buf, 0x00, sizeof(buf));
+    sprintf(buf, "현재시간은 %d시 %d분 %d초",
+            timeClient.getHours(),
+            timeClient.getMinutes(),
+            timeClient.getSeconds());
+    s1 = draw_text (FbInfo, 0, 0, 1, "%s", buf);
+
+    s2 = timeClient.getDay();
+    memset(buf, 0x00, sizeof(buf));
+    sprintf(buf, "오늘은 %s 입니다.",
+            daysOfTheWeek[s2]);
+    s2 = draw_text (FbInfo, 0, 16, 1, "%s", buf);
+#endif
     convert_to_matrix (FbInfo, 0, 0);
     matrix_update ();
-
     delay(1000);
     printf ("s1 = %d, s2 = %d\r\n", s1, s2);
     {
@@ -315,18 +302,41 @@ void loop()
         }
     }
 
+#if 0   /* Frmaebuffer debug */
+{
+    int x, y;
+    printf("\n\r");
+    for (y = 0; y < 32; y++) {
+        for(x = 0; x < 80; x++) {
+            if (get_pixel (FbInfo, x, y))   printf("#");
+            else                            printf(".");
+        }
+        printf("\n\r");
+    }
+    printf("\n\r");
+    for (y = 0; y < 16; y++) {
+        for (x = 0x80; x != 0; x >>= 1) {
+            if (pMatrixFb[0][y] & x)    printf("#");
+            else                        printf(".");
+        }
+        printf("\n\r");
+    }
+}
+#endif
+#if 1
     s = s1 > s2 ? s1 : s2;
     for (x = 0; x < s; x++) {
-        if (FbInfo)     convert_to_matrix (FbInfo , x, 0);
+        convert_to_matrix (FbInfo, x, 0);
         matrix_update ();
         delay(10);
         digitalWrite(2, 1);
         delay(10);
         digitalWrite(2, 0);
     }
-    if (FbInfo)     fb_close(FbInfo);
+    fb_close(FbInfo);
 #endif
 }
 
+//"경기도 안양시만안구 석수2동 온도 17도, 습도 80%, 구름많음, 바람 북서방향 0.7m/s 입니다."
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
