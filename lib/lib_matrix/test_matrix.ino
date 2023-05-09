@@ -24,13 +24,16 @@
 /* 32 x 16 */
 const unsigned char MatrixMap[] = {
      0,  1,  2,  3,  4,  5,  6,  7,
-     8,  9, 10, 11, 12, 13, 14, 15,
     16, 17, 18, 19, 20, 21, 22, 23,
+     8,  9, 10, 11, 12, 13, 14, 15,
     24, 25, 26, 27, 28, 29, 30, 31,
 };
 
-#define X_DOTS  64
-#define Y_DOTS  32
+// #define X_DOTS  64
+// #define Y_DOTS  32
+
+#define	X_DOTS	128
+#define	Y_DOTS	16
 
 // Default SPI 1Mhz, HW cs = true
 lib_matrix  matrix (X_DOTS, Y_DOTS, MatrixMap, 1000000, true);
@@ -53,7 +56,13 @@ unsigned char i = 0;
 void loop()
 {
     Serial.println("Loop Start");
-
+#if 0
+matrix.brightness(0x15);
+matrix.fill(0xff);  matrix.update();
+while (1) {
+    delay(2000);
+}
+#endif
     i %= 15;
     matrix.brightness(i);
     Serial.printf("Brightness = %d\r\n", i++);

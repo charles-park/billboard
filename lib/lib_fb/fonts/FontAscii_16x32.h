@@ -3,7 +3,7 @@
 #define __FONT_ASCII_16x32_H__
 
 //-----------------------------------------------------------------------------
-const PROGMEM unsigned char FONT_ASCII_16x32[] = {
+const PROGMEM unsigned char FONT_ASCII_16x32[][64] = {
 
     /*
      * code=0, hex=0x00, ascii="^@"

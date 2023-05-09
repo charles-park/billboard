@@ -18,6 +18,7 @@
 #ifndef __LIB_MATRIX_H__
 #define __LIB_MATRIX_H__
 
+#include <Arduino.h>
 //------------------------------------------------------------------------------
 class lib_matrix
 {

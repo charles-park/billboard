@@ -52,7 +52,6 @@ bool lib_matrix::get_bit (int x, int y)
 void lib_matrix::set_module_byte (int location_of_module, int line_of_module,
                                 unsigned char byte)
 {
-//    _p_fb[(_p_matrix_table[location_of_module] * 8) + line_of_module] = byte;
     _p_fb[(location_of_module * 8) + line_of_module] = byte;
 }
 
@@ -60,7 +59,6 @@ void lib_matrix::set_module_byte (int location_of_module, int line_of_module,
 unsigned char lib_matrix::get_module_byte (int location_of_module,
                                         int line_of_module)
 {
-//    return _p_fb[(_p_matrix_table[location_of_module] * 8) + line_of_module];
     return _p_fb[(location_of_module * 8) + line_of_module];
 }
 

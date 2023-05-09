@@ -25,6 +25,9 @@
 #include <umm_malloc/umm_heap_select.h>
 
 //------------------------------------------------------------------------------
+#define OFFICE_BILLBOARD
+
+//------------------------------------------------------------------------------
 // weather check
 #include <lib_weather.h>
 
@@ -34,8 +37,33 @@ WiFiClient	Client;
 lib_weather weather(&Client, "석수2동", "/wid/queryDFSRSS.jsp?zone=4117160000");
 
 //------------------------------------------------------------------------------
-#define OFFICE_BILLBOARD
+// SPI Matrix(MAX7219) lib
+#include <lib_matrix.h>
 
+#if defined(OFFICE_BILLBOARD)
+    #define X_DOTS  64
+    #define Y_DOTS  32
+
+    const unsigned char MatrixMap[] = {
+        0,  1,  2,  3,  4,  5,  6,  7,
+        8,  9, 10, 11, 12, 13, 14, 15,
+        16, 17, 18, 19, 20, 21, 22, 23,
+        24, 25, 26, 27, 28, 29, 30, 31,
+    };
+#else
+    #define X_DOTS  32
+    #define Y_DOTS  16
+
+    const unsigned char MatrixMap[] = {
+        0,  1,  2,  3,
+        4,  5,  6,  7,
+    };
+#endif
+
+// Default SPI 1Mhz, HW cs = true
+lib_matrix  matrix (X_DOTS, Y_DOTS, MatrixMap, 1000000, true);
+
+//------------------------------------------------------------------------------
 #if defined(OFFICE_BILLBOARD)
     const char *ssid     = "Charles_2.4G";
     const char *password = "hard4624";
@@ -53,120 +81,18 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
 //------------------------------------------------------------------------------
-// number of dot matrix(8x8), default
-#if defined(OFFICE_BILLBOARD)
-    #define MATRIX_MODULE_COUNT     32
-    #define MATRIX_MODULE_LINES     4
-#else
-    #define MATRIX_MODULE_COUNT     8
-    #define MATRIX_MODULE_LINES     2
-#endif
-
-/* 32 x 16 */
-const unsigned char MatrixMap[MATRIX_MODULE_COUNT] = {
-     0,  1,  2,  3,  4,  5,  6,  7,
-#if defined(OFFICE_BILLBOARD)
-     8,  9, 10, 11, 12, 13, 14, 15,
-    16, 17, 18, 19, 20, 21, 22, 23,
-    24, 25, 26, 27, 28, 29, 30, 31,
-#endif
-};
-
-static int MatrixModuleCount = MATRIX_MODULE_COUNT;
-static int MatrixModuleLines = MATRIX_MODULE_LINES;
-
-#define MATRIX_MODULE_MAX   MATRIX_MODULE_COUNT
-static unsigned char    pMatrixFb[MATRIX_MODULE_COUNT][8];
-
-/* SPI Send Buffer : MatrixModuleCount * 2 */
-static unsigned char    *pSpiBuffer;
-
-//------------------------------------------------------------------------------
-/* Dot matrix (max7219) init value */
-const unsigned char MatrixInitCmd[][2] = {
-    /* { reg, init val }*/
-    /* shutdown : operation (D0 = 0) */
-    {0x0c,0x00},
-    /* Decode mode : No decode for digits 7-0(dot matrix led) */
-    {0x09,0x00},
-    /* dot led bright 0x0f(max) = 0.5W/ea */
-//    {0x0a,0x01},
-    {0x0a,0x08},
-//    {0x0a,0x0f},
-    /* scan limit : 8 line enable */
-    {0x0b,0x07},
-    /* shutdown : normal operation (D0 = 1) */
-    {0x0c,0x01},
-    /* Display Normal Operation (D0 = 0)*/
-    {0x0f,0x00},
-    /* Display Test Mode Operation (D0 = 1)*/
-//    {0x0f,0x01},
-};
-
-#define ARRAY_COUNT(x)  (sizeof(x) / sizeof(x[0]))
-
-//------------------------------------------------------------------------------
-void spi_write (void *buf, int size)
-{
-    SPI.transfer(buf, size);
-}
-
-//------------------------------------------------------------------------------
-static void matrix_update (void)
-{
-    unsigned char i, j;
-
-    for (i = 0; i < 8; i++)  {
-        memset (pSpiBuffer, 0x00, MatrixModuleCount * 2);
-        for (j = 0; j < MatrixModuleCount; j++) {
-            /* digit number set (1-8) */
-            pSpiBuffer [(j * 2) + 0] = i +1;
-            /* digit data set */
-            pSpiBuffer [(j * 2) + 1] = pMatrixFb[j][i];
-        }
-        spi_write(pSpiBuffer, MatrixModuleCount * 2);
-    }
-}
-
-//------------------------------------------------------------------------------
-/* dot matrix init */
-//------------------------------------------------------------------------------
-void matrix_init (void)
-{
-    unsigned char i, j;
-
-    pSpiBuffer = (unsigned char *)malloc(MatrixModuleCount * 2);
-
-    /* dummy data send */
-    memset (pSpiBuffer, 0, MatrixModuleCount * 2);
-    spi_write(pSpiBuffer, MatrixModuleCount * 2);
-    delay(10);
-
-    for (i = 0; i < (int)ARRAY_COUNT(MatrixInitCmd); i++)  {
-        memset (pSpiBuffer, 0x00, MatrixModuleCount * 2);
-        for (j = 0; j < MATRIX_MODULE_COUNT; j++) {
-            pSpiBuffer[(j * 2) + 0] = MatrixInitCmd[i][0];
-            pSpiBuffer[(j * 2) + 1] = MatrixInitCmd[i][1];
-        }
-        spi_write(pSpiBuffer, MatrixModuleCount * 2);
-    }
-    delay(10);
-
-    memset (pMatrixFb, 0x00, sizeof(pMatrixFb));
-    matrix_update();
-}
-
 //------------------------------------------------------------------------------
 void matrix_test (void)
 {
     static unsigned char mem_value = 0x00;
 
-    memset(pMatrixFb, mem_value--, sizeof(pMatrixFb));
-    matrix_update ();
+    matrix.fill(mem_value--);
+    matrix.update();
     delay(500);
 }
 
 //------------------------------------------------------------------------------
+#if 0
 void convert_to_matrix (fb_info_t *fb_info, int start_x, int start_y)
 {
     int x, y, x_bits, y_bits, module_x_cnt, matrix_fb_x, matrix_fb_y;
@@ -200,7 +126,7 @@ void convert_to_matrix (fb_info_t *fb_info, int start_x, int start_y)
         }
     }
 }
-
+#endif
 //------------------------------------------------------------------------------
 int my_strlen (char *str)
 {
@@ -225,12 +151,12 @@ void setup()
 
     Serial.begin(115200);
 
+#if 0
     SPI.begin();
     SPI.setFrequency(10000000);
     SPI.setHwCs(true);
 
     matrix_init();
-#if 0
     WiFi.begin(ssid, password);
 
     while ( WiFi.status() != WL_CONNECTED ) {
