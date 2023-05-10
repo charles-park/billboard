@@ -163,7 +163,6 @@ int lib_fb::_draw_text  (int x, int y, unsigned char *p_str)
         x += draw_bits;
         draw_bits_total += draw_bits;
     }
-    printf("\n\rdraw x = %d, y = %d\n\r", x, y);
     printf("\n\rdraw image x bits size = %d\n\r", draw_bits_total);
     return (draw_bits_total);
 }

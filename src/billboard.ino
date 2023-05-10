@@ -28,6 +28,22 @@
 #define OFFICE_BILLBOARD
 
 //------------------------------------------------------------------------------
+#if defined(OFFICE_BILLBOARD)
+    const char *ssid     = "Charles_2.4G";
+    const char *password = "hard4624";
+#else   // Home AP
+    const char *ssid     = "charles";
+    const char *password = "charles.park";
+#endif
+
+const long utcOffsetInSeconds = 3600;
+const char daysOfTheWeek[7][11] = {"일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"};
+
+// Define NTP Client to get time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+
+//------------------------------------------------------------------------------
 // weather check
 #include <lib_weather.h>
 
@@ -41,13 +57,13 @@ lib_weather weather(&Client, "석수2동", "/wid/queryDFSRSS.jsp?zone=4117160000
 #include <lib_matrix.h>
 
 #if defined(OFFICE_BILLBOARD)
-    #define X_DOTS  64
-    #define Y_DOTS  32
+    #define X_DOTS  128
+    #define Y_DOTS  16
 
     const unsigned char MatrixMap[] = {
         0,  1,  2,  3,  4,  5,  6,  7,
-        8,  9, 10, 11, 12, 13, 14, 15,
         16, 17, 18, 19, 20, 21, 22, 23,
+        8,  9, 10, 11, 12, 13, 14, 15,
         24, 25, 26, 27, 28, 29, 30, 31,
     };
 #else
@@ -61,24 +77,17 @@ lib_weather weather(&Client, "석수2동", "/wid/queryDFSRSS.jsp?zone=4117160000
 #endif
 
 // Default SPI 1Mhz, HW cs = true
-lib_matrix  matrix (X_DOTS, Y_DOTS, MatrixMap, 1000000, true);
+lib_matrix  matrix (X_DOTS, Y_DOTS, MatrixMap, 2000000, true);
 
 //------------------------------------------------------------------------------
-#if defined(OFFICE_BILLBOARD)
-    const char *ssid     = "Charles_2.4G";
-    const char *password = "hard4624";
-#else   // Home AP
-    const char *ssid     = "charles";
-    const char *password = "charles.park";
-#endif
+// Text Draw framebuffer setup
+#include <lib_fb.h>
 
-const long utcOffsetInSeconds = 3600;
+#define FB_W    1920
+#define FB_H    16
+#define FB_BPP  1
 
-const char daysOfTheWeek[7][11] = {"일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"};
-
-// Define NTP Client to get time
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+lib_fb fb(FB_W, FB_H, FB_BPP);
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -92,122 +101,83 @@ void matrix_test (void)
 }
 
 //------------------------------------------------------------------------------
-#if 0
-void convert_to_matrix (fb_info_t *fb_info, int start_x, int start_y)
-{
-    int x, y, x_bits, y_bits, module_x_cnt, matrix_fb_x, matrix_fb_y;
-
-    unsigned char bit_mask = 0x80;
-
-    module_x_cnt = MATRIX_MODULE_MAX / MatrixModuleLines;
-
-    x_bits = (module_x_cnt      * 8);
-    y_bits = (MatrixModuleLines * 8);
-
-    memset(pMatrixFb, 0x00, sizeof(pMatrixFb));
-    for (y = 0; y < y_bits; y++) {
-        for (x = 0, bit_mask = 0x80; x < x_bits; x++) {
-            // MatrixFb[(y / 8) * (x축 모듈갯수) + (x / 8)][y % 8] |= (fb[pos].uint != 0 ? bit_mask : 0);
-            matrix_fb_x = (y / 8) * module_x_cnt + (x / 8);
-            matrix_fb_y = (y % 8);
-
-            /* Matrix position find from MatrixMap table */
-            matrix_fb_x = MatrixMap[matrix_fb_x];
-            if (((start_x + x) > fb_info->w) || ((start_x + x) < 0) ||
-                ((start_y + y) > fb_info->h) || ((start_y + y) < 0)) {
-                pMatrixFb[matrix_fb_x][matrix_fb_y] &= ~(bit_mask);
-            } else {
-                pMatrixFb[matrix_fb_x][matrix_fb_y] |=
-                        (get_pixel (fb_info, x + start_x, y + start_y) ? bit_mask : 0);
-            }
-            bit_mask >>= 1;
-            if (!bit_mask)
-                bit_mask = 0x80;
-        }
-    }
-}
-#endif
-//------------------------------------------------------------------------------
-int my_strlen (char *str)
-{
-    int cnt = 0, err = strlen(str) +1;
-
-    /* utf-8 에서 한글표현은 3바이트 */
-    while ((*str != 0x00) && err--) {
-        if (*str & 0x80) {
-            str += 3;   cnt += 2;
-        } else {
-            str += 1;   cnt++;
-        }
-    }
-    return cnt;
-}
-
-//------------------------------------------------------------------------------
 void setup()
 {
     // Board LED초기화. 동작상황 표시함.
     pinMode(2,  OUTPUT);
 
     Serial.begin(115200);
+    Serial.println ( "START" );
 
-#if 0
-    SPI.begin();
-    SPI.setFrequency(10000000);
-    SPI.setHwCs(true);
-
-    matrix_init();
     WiFi.begin(ssid, password);
 
     while ( WiFi.status() != WL_CONNECTED ) {
         delay ( 500 );
         Serial.print ( "." );
     }
+    Serial.print ( "\r\n" );
+    Serial.printf( "WIFI Setup Complete. %s \r\n", ssid );
+
     timeClient.begin();                 // NTP 클라이언트 초기화
     timeClient.setTimeOffset(32400);    // 한국은 GMT+9이므로 9*3600=32400
     timeClient.update();
-#endif
+
+    // Dot matrix brightness (1 ~ 15)
+    matrix.brightness(3);
+    // weather request period 5 min.
+    weather.setDataPeriod(5 * 60 * 1000);
 }
 
 //------------------------------------------------------------------------------
-char buf[512];
-int s, s1, s2, x = 0, f = 0;
-fb_info_t *FbInfo;
+struct tm *get_tm (NTPClient *pNTPClient)
+{
+    unsigned long long epochTime = pNTPClient->getEpochTime();
+    /*
+        tm_sec: seconds after the minute;
+        tm_min: minutes after the hour;
+        tm_hour: hours since midnight;
+        tm_mday: day of the month;
+        tm_year: years since 1900;
+        tm_wday: days since Sunday;
+        tm_yday: days since January 1;
+        tm_isdst: Daylight Saving Time flag;
+    */
+    return gmtime ((time_t *)&epochTime);
+}
 
+//------------------------------------------------------------------------------
+void copy_matrix_to_fb (int x_offset, int y_offset)
+{
+    matrix.fill(0x0);
+    for (int y = 0; y < matrix.get_y_dots(); y++) {
+        for (int x = 0; x < matrix.get_x_dots(); x++) {
+            matrix.set_bit (x, y, fb.get_pixel(x_offset + x, y_offset + y));
+        }
+    }
+    matrix.update();
+    if (!x_offset)
+        delay(1000);
+}
 //------------------------------------------------------------------------------
 void loop()
 {
-    matrix_test ();
-#if 0
     timeClient.update();
-    /* fixed fb test */
-    FbInfo = fb_init (1920, 32);
     {
-        unsigned long long epochTime = timeClient.getEpochTime();
-        /*
-            tm_sec: seconds after the minute;
-            tm_min: minutes after the hour;
-            tm_hour: hours since midnight;
-            tm_mday: day of the month;
-            tm_year: years since 1900;
-            tm_wday: days since Sunday;
-            tm_yday: days since January 1;
-            tm_isdst: Daylight Saving Time flag;
-        */
-        struct tm *ptm = gmtime ((time_t *)&epochTime);
+        struct tm *ptm = get_tm(&timeClient);
+        int draw_x_w;
 
-        memset(buf, 0x00, sizeof(buf));
-        sprintf(buf, "NTP Server 현재시간 : %d년 %d월 %d일, %d시 %d분 %d초 %s.",
-                ptm->tm_year + 1900,
-                ptm->tm_mon+1,
-                ptm->tm_mday,
-                timeClient.getHours(),
-                timeClient.getMinutes(),
-                timeClient.getSeconds(),
-                daysOfTheWeek[(int)timeClient.getDay()]);
-        s1 = draw_text (FbInfo, 0, 0, 1, "%s", buf);
-    }
-    {
+        fb.clear();
+
+        draw_x_w = fb.draw_text(0, 0, 1,
+            "NTP Server 현재시간 : %d년 %d월 %d일, %d시 %d분 %d초 %s. ",
+            ptm->tm_year + 1900,
+            ptm->tm_mon+1,
+            ptm->tm_mday,
+            timeClient.getHours(),
+            timeClient.getMinutes(),
+            timeClient.getSeconds(),
+            daysOfTheWeek[(int)timeClient.getDay()]);
+
         String *Temp = weather.getData(W_DATA_TEMP);
         String *Reh = weather.getData(W_DATA_REH);
         String *WfKor = weather.getData(W_DATA_WF_KOR);
@@ -215,23 +185,23 @@ void loop()
         String *Ws = weather.getData(W_DATA_WS);
         String *Pop = weather.getData(W_DATA_POP);
 
-        memset(buf, 0x00, sizeof(buf));
-        sprintf(buf, "%s 날씨 : 온도 %s도, 습도 %s%%, 풍향 %s, 풍속 %3.1fm/s, 강수확률 %s%%, 하늘 %s.",
-                weather.getLocation(),
-                Temp->c_str(),
-                Reh->c_str(),
-                WdKor->c_str(),
-                atof(Ws->c_str()),
-                Pop->c_str(),
-                WfKor->c_str()
-                );
-        s2 = draw_text (FbInfo, 0, 16, 1, "%s", buf);
-    }
-    convert_to_matrix (FbInfo, 0, 0);
-    matrix_update ();
+        draw_x_w += fb.draw_text(draw_x_w, 0, 1,
+            "%s 날씨 : 온도 %s도, 습도 %s%%, 풍향 %s, 풍속 %3.1fm/s, 강수확률 %s%%, 하늘 %s.",
+            weather.getLocation(),
+            Temp->c_str(),
+            Reh->c_str(),
+            WdKor->c_str(),
+            atof(Ws->c_str()),
+            Pop->c_str(),
+            WfKor->c_str());
 
-    delay(1000);
-    printf ("s1 = %d, s2 = %d\r\n", s1, s2);
+        for (int i = 0; i < draw_x_w; i++) {
+            digitalWrite(2, 1);
+            copy_matrix_to_fb (i, 0);
+            delay(10);
+            digitalWrite(2, 0);
+        }
+    }
     {
         HeapSelectIram ephemeral;
         Serial.printf("\rIRAM free: %6d bytes\r\n", ESP.getFreeHeap());
@@ -240,18 +210,6 @@ void loop()
             Serial.printf("\rDRAM free: %6d bytes\r\n", ESP.getFreeHeap());
         }
     }
-
-    s = s1 > s2 ? s1 : s2;
-    for (x = 0; x < s; x++) {
-        if (FbInfo)     convert_to_matrix (FbInfo , x, 0);
-        matrix_update ();
-        delay(10);
-        digitalWrite(2, 1);
-        delay(10);
-        digitalWrite(2, 0);
-    }
-    if (FbInfo)     fb_close(FbInfo);
-#endif
 }
 
 //------------------------------------------------------------------------------

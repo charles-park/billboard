@@ -16,7 +16,8 @@
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-#define TEST_MAKE_IMG
+//#define TEST_MAKE_IMG
+
 //-----------------------------------------------------------------------------
 lib_font::lib_font (enum eASCII_FONTS a_font, enum eHANGUL_FONTS h_font)
 {
@@ -182,7 +183,6 @@ void lib_font::_make_image (unsigned char f_m_l, int img_base)
 //-----------------------------------------------------------------------------
 void lib_font::make_hangul_img (unsigned char c1, unsigned char c2, unsigned char c3)
 {
-
     unsigned char f, m, l;
     unsigned char f1, f2, f3;
     unsigned short utf16 = 0;
