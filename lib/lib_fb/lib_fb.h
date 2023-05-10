@@ -2,7 +2,7 @@
 /**
  * @file lib_fb.h
  * @author charles-park (charles-park@hardkernel.com)
- * @brief dotmatrix framebuffer library header file.
+ * @brief Framebuffer control library
  * @version 0.1
  * @date 2022-05-10
  *
@@ -15,6 +15,7 @@
 #define __LIB_FB_H__
 
 #include <Arduino.h>
+#include "lib_font.h"
 
 //-----------------------------------------------------------------------------
 // Color table & convert macro
@@ -78,12 +79,16 @@ union u_color888 {
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-class lib_fb
+class lib_fb : public lib_font
 {
 private:
-    int             _w, _h, _bpp, _stride, _size, _bgr;
+    int             _w, _h, _bpp, _stride, _size, _bgr,  _scale;
     unsigned char   *_p_mem;
     unsigned int    _bg_color, _fg_color;
+
+    int _draw_ascii_bitmap (int x, int y);
+    int _draw_hangul_bitmap (int x, int y);
+    int _draw_text (int x, int y, unsigned char *buf);
 
 public:
     lib_fb (/* args */);
@@ -96,6 +101,7 @@ public:
     void set_color (unsigned int fg_color, unsigned int bg_color) {
         _fg_color = fg_color;   _bg_color = bg_color;
     }
+    void set_color (unsigned int fg_color) { _fg_color = fg_color; }
     unsigned int get_fg_color () { return _fg_color; }
     unsigned int get_bg_color () { return _bg_color; }
     int get_width () { return _w; }
@@ -105,8 +111,23 @@ public:
         memset (_p_mem, COLOR_BLACK, _size);
     }
 
-    void put_pixel (int w, int h);
-    unsigned int get_pixel (int w, int h);
+    void put_pixel (int x, int y, unsigned int color);
+    void put_pixel (int x, int y) { put_pixel (x, y, _fg_color); };
+
+    unsigned int get_pixel (int x, int y);
+
+    void set_scale (int scale) { _scale = scale; };
+    int  get_scale () { return _scale; };
+
+    int my_strlen  (char *str);
+    int draw_text  (int x, int y, int scale, char *fmt, ...);
+    int draw_text  (int x, int y, const char *str) {
+        return _draw_text  (x, y, (unsigned char *)str);
+    };
+    int draw_text  (int x, int y, int scale, const char *str) {
+        set_scale (scale);
+        return draw_text (x, y, str);
+    };
 };
 
 //-----------------------------------------------------------------------------

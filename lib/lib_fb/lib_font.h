@@ -2,9 +2,9 @@
 /**
  * @file lib_font.h
  * @author charles-park (charles-park@hardkernel.com)
- * @brief dotmatrix framebuffer library header file.
+ * @brief hangul, ascii font control library header file.
  * @version 0.1
- * @date 2022-05-10
+ * @date 2023-05-10
  *
  * @copyright Copyright (c) 2022
  *

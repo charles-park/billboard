@@ -19,9 +19,9 @@
 #include <lib_font.h>
 #include <umm_malloc/umm_heap_select.h>
 
-#define FB_W    32
+#define FB_W    64
 #define FB_H    32
-#define FB_BPP  32
+#define FB_BPP  1
 
 //lib_fb fb(16, 16, 1);
 lib_font font (eASCII_FONT_8x16, eHANGUL_FONT_HANPIL);
@@ -55,8 +55,9 @@ void fb_console_display(int w, int h)
 
     fb.set_color (COLOR_WHITE, COLOR_BLACK);
     fb.clear ();
-    fb.put_pixel(w, h);
-    printf("\r\n0x%08x\n\r", fb.get_pixel(w, h));
+    fb.draw_text(0,  0, 1, "%s", "한글A");
+    fb.set_ascii_font (eASCII_FONT_8x8);
+    fb.draw_text(0, 16, 1, "%s", "C한글");
 
     for (int i = 0; i < fb.get_height(); i++) {
         printf ("\n\r");

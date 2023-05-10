@@ -2,9 +2,9 @@
 /**
  * @file lib_font.cpp
  * @author charles-park (charles.park@hardkernel.com)
- * @brief Framebuffer control library
+ * @brief hangul, ascii font control library header file.
  * @version 0.1
- * @date 2023-04-10
+ * @date 2023-05-10
  *
  * @copyright Copyright (c) 2022
  *
