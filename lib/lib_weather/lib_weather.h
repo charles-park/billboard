@@ -11,9 +11,18 @@
 
 //------------------------------------------------------------------------------
 /*
+    RSS 서비스 이용
+    https://www.weather.go.kr/w/pop/rss-guide.do
+
     기상청 RSS 설정 및 관련 자료
     https://devweather.kma.go.kr/weather/lifenindustry/sevice_rss.jsp
     https://www.weather.go.kr/w/resources/pdf/dongnaeforecast_rss.pdf
+    https://www.kma.go.kr/images/weather/lifenindustry/timeseries_XML.pdf
+
+    V2.0에는 기상청 Open-API or OpenWeatherMap를 사용하여 제작함.(RSS정보가 정확하지 않는 경우가 많음.)
+    https://data.kma.go.kr/api/selectApiList.do?pgmNo=42
+    https://diy-project.tistory.com/73
+
 */
 /*
     RSS xml data format
@@ -68,38 +77,42 @@ enum	w_data_e {
 //------------------------------------------------------------------------------
 #define HTTP_PORT   80
 #define HOST_NAME   "www.kma.go.kr"
-
+#include <WString.h>
 //------------------------------------------------------------------------------
 class lib_weather
 {
 private:
     /* data */
-    uint32_t    _data_period_ms	= 1000 * 60; // default 1 min
-    uint32_t    _priv_millis	= 0;
-
-    // 지역 정보
-    char        *_p_location = NULL;
-    char        *_p_rss_url  = NULL;
     WiFiClient  *_p_client   = NULL;
 
-    // 발표시간
+    unsigned int    _data_period_ms	= 1000 * 60; // default 1 min
+    unsigned int    _priv_millis	= 0;
+
+    // 지역 정보
+    char _location[128];
+    String _url = "";
+
+    // 발표시간 (202305010900) : 2023년 5월 1일 09시 00분
     String _tm = "";
     String _w_data[W_DATA_END];
 
-    void _dataParse();
-    void _getData();
+    void _data_parse();
+    void _get_data();
 
+    bool _data_valid = false;
 public:
-    lib_weather(/* args */);
-    lib_weather(WiFiClient *client, const char *location, const char *url);
+    lib_weather(WiFiClient *client, char *location, char *rss_url);
     ~lib_weather();
 
-    String *getData(unsigned char w_item);
-    void setRssUrl(const char *location, const char *url);
-    void setClient(WiFiClient *client);
-    void setDataPeriod(uint32_t period_ms);
-    char *getLocation()	{	return	_p_location;	}
+    bool request_data ();
+    String *get_data     (unsigned char w_item);
+    char   *get_data_str (unsigned char w_item);
 
+    char *get_location_str () { return  _location; }
+
+    void set_rss_url (char *location, char *rss_url);
+    void set_period_ms (unsigned int period_ms) { _data_period_ms = period_ms; }
+    bool get_data_valid () { return _data_valid; }
 };
 
 //------------------------------------------------------------------------------

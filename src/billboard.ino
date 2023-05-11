@@ -25,6 +25,21 @@
 #include <umm_malloc/umm_heap_select.h>
 
 //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Reference Web-site
+//------------------------------------------------------------------------------
+// TCP Server / TCP Client communication example.
+// http://sigmaprj.com/esp8266-tcp-client-server.html
+//------------------------------------------------------------------------------
+// Soft-AP Example
+// https://arduino-esp8266.readthedocs.io/en/latest/esp8266wifi/soft-access-point-examples.html
+//------------------------------------------------------------------------------
+// OTA Example
+// https://arduino-esp8266.readthedocs.io/en/latest/ota_updates/readme.html
+// https://github.com/esp8266/Arduino/tree/master/libraries/ArduinoOTA
+// https://community.platformio.org/t/esp8266-ota-partition-tables/24802
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 #define OFFICE_BILLBOARD
 
 //------------------------------------------------------------------------------
@@ -47,10 +62,16 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 // weather check
 #include <lib_weather.h>
 
-//경기도 안양시만안구 석수2동 Rss
-//http://www.kma.go.kr/wid/queryDFSRSS.jsp?zone=4117160000
 WiFiClient	Client;
-lib_weather weather(&Client, "석수2동", "/wid/queryDFSRSS.jsp?zone=4117160000");
+
+// 기상청 RSS 서비스 : https://www.weather.go.kr/w/pop/rss-guide.do
+// 경기도 안양시만안구 석수2동 Rss
+// http://www.kma.go.kr/wid/queryDFSRSS.jsp?zone=4117160000
+lib_weather weather(&Client, "안양시 만안구 석수2동", "/wid/queryDFSRSS.jsp?zone=4117160000");
+// lib_weather weather(&Client, "석수2동", "/wid/queryDFSRSS.jsp?zone=4117160000");
+// 경기도 의왕시 오전동
+// http://www.kma.go.kr/wid/queryDFSRSS.jsp?zone=4143053000
+// lib_weather weather(&Client, "의왕시 오전동", "/wid/queryDFSRSS.jsp?zone=4143053000");
 
 //------------------------------------------------------------------------------
 // SPI Matrix(MAX7219) lib
@@ -91,41 +112,13 @@ lib_fb fb(FB_W, FB_H, FB_BPP);
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-void matrix_test (void)
+void matrix_msg (char *msg)
 {
     static unsigned char mem_value = 0x00;
 
     matrix.fill(mem_value--);
     matrix.update();
     delay(500);
-}
-
-//------------------------------------------------------------------------------
-void setup()
-{
-    // Board LED초기화. 동작상황 표시함.
-    pinMode(2,  OUTPUT);
-
-    Serial.begin(115200);
-    Serial.println ( "START" );
-
-    WiFi.begin(ssid, password);
-
-    while ( WiFi.status() != WL_CONNECTED ) {
-        delay ( 500 );
-        Serial.print ( "." );
-    }
-    Serial.print ( "\r\n" );
-    Serial.printf( "WIFI Setup Complete. %s \r\n", ssid );
-
-    timeClient.begin();                 // NTP 클라이언트 초기화
-    timeClient.setTimeOffset(32400);    // 한국은 GMT+9이므로 9*3600=32400
-    timeClient.update();
-
-    // Dot matrix brightness (1 ~ 15)
-    matrix.brightness(3);
-    // weather request period 5 min.
-    weather.setDataPeriod(5 * 60 * 1000);
 }
 
 //------------------------------------------------------------------------------
@@ -158,7 +151,40 @@ void copy_matrix_to_fb (int x_offset, int y_offset)
     if (!x_offset)
         delay(1000);
 }
+
 //------------------------------------------------------------------------------
+void setup()
+{
+    // Board LED초기화. 동작상황 표시함.
+    pinMode(2,  OUTPUT);
+
+    Serial.begin(115200);
+    Serial.println ( "START" );
+
+    timeClient.begin();                 // NTP 클라이언트 초기화
+    timeClient.setTimeOffset(32400);    // 한국은 GMT+9이므로 9*3600=32400
+    timeClient.update();
+
+    // Dot matrix brightness (1 ~ 15)
+    matrix.brightness(3);
+    // weather request period 5 min.
+    weather.set_period_ms(5 * 60 * 1000);
+
+    fb.draw_text(0, 0, 1, "WIFI Init...");
+    copy_matrix_to_fb (0, 0);
+
+    WiFi.begin(ssid, password);
+
+    while ( WiFi.status() != WL_CONNECTED ) {
+        delay ( 500 );
+        Serial.print ( "." );
+    }
+    Serial.print ( "\r\n" );
+    Serial.printf( "WIFI Setup Complete. %s \r\n", ssid );
+}
+
+//------------------------------------------------------------------------------
+bool loc = false;
 void loop()
 {
     timeClient.update();
@@ -178,28 +204,42 @@ void loop()
             timeClient.getSeconds(),
             daysOfTheWeek[(int)timeClient.getDay()]);
 
-        String *Temp = weather.getData(W_DATA_TEMP);
-        String *Reh = weather.getData(W_DATA_REH);
-        String *WfKor = weather.getData(W_DATA_WF_KOR);
-        String *WdKor = weather.getData(W_DATA_WD_KOR);
-        String *Ws = weather.getData(W_DATA_WS);
-        String *Pop = weather.getData(W_DATA_POP);
+        if (weather.request_data()) {
+            String *Temp = weather.get_data(W_DATA_TEMP);
+            String *Reh = weather.get_data(W_DATA_REH);
+            String *WfKor = weather.get_data(W_DATA_WF_KOR);
+            String *WdKor = weather.get_data(W_DATA_WD_KOR);
+            String *Ws = weather.get_data(W_DATA_WS);
+            String *Pop = weather.get_data(W_DATA_POP);
 
-        draw_x_w += fb.draw_text(draw_x_w, 0, 1,
-            "%s 날씨 : 온도 %s도, 습도 %s%%, 풍향 %s, 풍속 %3.1fm/s, 강수확률 %s%%, 하늘 %s.",
-            weather.getLocation(),
-            Temp->c_str(),
-            Reh->c_str(),
-            WdKor->c_str(),
-            atof(Ws->c_str()),
-            Pop->c_str(),
-            WfKor->c_str());
+            draw_x_w += fb.draw_text(draw_x_w, 0, 1,
+                "%s 날씨 : 온도 %s도, 습도 %s%%, 풍향 %s, 풍속 %3.1fm/s, 강수확률 %s%%, 하늘 %s.",
+                weather.get_location_str(),
+                Temp->c_str(),
+                Reh->c_str(),
+                WdKor->c_str(),
+                atof(Ws->c_str()),
+                Pop->c_str(),
+                WfKor->c_str());
 
-        for (int i = 0; i < draw_x_w; i++) {
-            digitalWrite(2, 1);
-            copy_matrix_to_fb (i, 0);
-            delay(10);
-            digitalWrite(2, 0);
+            for (int i = 0; i < draw_x_w; i++) {
+                copy_matrix_to_fb (i, 0);
+                digitalWrite(2, 1);
+                delay(5);
+                digitalWrite(2, 0);
+                delay(5);
+            }
+
+            fb.clear();
+            fb.draw_text(0, 0, 1, "날씨 로딩중..");
+            copy_matrix_to_fb (0, 0);
+
+            if ((loc = !loc)) {
+                weather.set_rss_url("의왕시 오전동", "/wid/queryDFSRSS.jsp?zone=4143053000");
+            }
+            else {
+                weather.set_rss_url("안양시 만안구 석수2동", "/wid/queryDFSRSS.jsp?zone=4117160000");
+            }
         }
     }
     {
