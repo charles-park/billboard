@@ -89,6 +89,7 @@ void ota_setup()
         }
     });
     ArduinoOTA.begin();
+    Serial.printf( "OTA Start.. Build : %s,%s \r\n", __DATE__, __TIME__);
 }
 
 //------------------------------------------------------------------------------

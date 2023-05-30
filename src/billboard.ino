@@ -181,7 +181,11 @@ void setup()
     fb.draw_text(0, 0, 1, "WIFI Init...");
     copy_fb_to_matrix (0, 0);
 
+#if defined(F_WIFI_SETUP)
+    WiFi.begin(F_WIFI_SSID, F_WIFI_PASS);
+#else
     WiFi.begin(ssid, password);
+#endif
 
     while ( WiFi.status() != WL_CONNECTED ) {
         delay ( 500 );
@@ -191,7 +195,6 @@ void setup()
     Serial.printf( "WIFI Setup Complete. %s \r\n", ssid );
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
-    Serial.printf( "OTA Start.. Build : %s,%s \r\n", __DATE__, __TIME__);
     /*
         OTA 환경 설정(callback function init)
         ota_loop()함수는 프로그램 동작중 가장많이 실행되는 함수 또는 위치에 실행하도록 설정한다.
