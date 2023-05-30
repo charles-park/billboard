@@ -111,6 +111,10 @@ lib_matrix  matrix (X_DOTS, Y_DOTS, MatrixMap, 2000000, true);
 lib_fb fb(FB_W, FB_H, FB_BPP);
 
 //------------------------------------------------------------------------------
+// OTA update logic
+#include "ota_update.h"
+
+//------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 void matrix_msg (char *msg)
 {
@@ -139,7 +143,7 @@ struct tm *get_tm (NTPClient *pNTPClient)
 }
 
 //------------------------------------------------------------------------------
-void copy_matrix_to_fb (int x_offset, int y_offset)
+void copy_fb_to_matrix (int x_offset, int y_offset)
 {
     matrix.fill(0x0);
     for (int y = 0; y < matrix.get_y_dots(); y++) {
@@ -150,6 +154,10 @@ void copy_matrix_to_fb (int x_offset, int y_offset)
     matrix.update();
     if (!x_offset)
         delay(1000);
+    /*
+        OTA Signal을 받기위하여 가장 많이/자주 호출되어지는 부분에 ota_loop를 실행한다.
+    */
+    ota_loop();
 }
 
 //------------------------------------------------------------------------------
@@ -171,7 +179,7 @@ void setup()
     weather.set_period_ms(5 * 60 * 1000);
 
     fb.draw_text(0, 0, 1, "WIFI Init...");
-    copy_matrix_to_fb (0, 0);
+    copy_fb_to_matrix (0, 0);
 
     WiFi.begin(ssid, password);
 
@@ -181,6 +189,16 @@ void setup()
     }
     Serial.print ( "\r\n" );
     Serial.printf( "WIFI Setup Complete. %s \r\n", ssid );
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+    Serial.printf( "OTA Start.. Build : %s,%s \r\n", __DATE__, __TIME__);
+    /*
+        OTA 환경 설정(callback function init)
+        ota_loop()함수는 프로그램 동작중 가장많이 실행되는 함수 또는 위치에 실행하도록 설정한다.
+        이 프로그램에서 가장 많이 사용되는 함수는 copy_fb_to_matrix 이므로 function하단에
+        해당 function을 호출하도록 한다.
+    */
+    ota_setup();
 }
 
 //------------------------------------------------------------------------------
@@ -223,7 +241,7 @@ void loop()
                 WfKor->c_str());
 
             for (int i = 0; i < draw_x_w; i++) {
-                copy_matrix_to_fb (i, 0);
+                copy_fb_to_matrix (i, 0);
                 digitalWrite(2, 1);
                 delay(5);
                 digitalWrite(2, 0);
@@ -232,7 +250,7 @@ void loop()
 
             fb.clear();
             fb.draw_text(0, 0, 1, "날씨 로딩중..");
-            copy_matrix_to_fb (0, 0);
+            copy_fb_to_matrix (0, 0);
 
             if ((loc = !loc)) {
                 weather.set_rss_url("의왕시 오전동", "/wid/queryDFSRSS.jsp?zone=4143053000");
