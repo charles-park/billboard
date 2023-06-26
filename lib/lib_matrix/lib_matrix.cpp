@@ -90,6 +90,7 @@ void lib_matrix::update ()
         }
         _send_to_matrix();
     }
+    Serial.printf("%d %d\r\n",_spi_send_bytes, _num_of_module);
 }
 
 //------------------------------------------------------------------------------
@@ -97,14 +98,16 @@ void lib_matrix::_init (unsigned long spi_freq, bool hw_cs)
 {
     int cmd_cnt = sizeof(_InitCmd)/sizeof(_InitCmd[0]);
 
+    delay(1000);
     /* SPI init */
     SPI.begin();
     SPI.setFrequency(spi_freq);
     SPI.setHwCs(hw_cs);
 
     /* dummy data send */
+    delay(100);
     memset (_p_spi_buffer, 0, _spi_send_bytes); _send_to_matrix ();
-    delay(10);
+    delay(100);
 
     for (int i = 0; i < cmd_cnt; i++)  {
         for (int j = 0; j < _num_of_module; j++) {
@@ -113,8 +116,17 @@ void lib_matrix::_init (unsigned long spi_freq, bool hw_cs)
         }
         _send_to_matrix();
     }
-    delay(10);
-
+    delay(100);
+#if 0
+    for (int i = 0; i < cmd_cnt; i++)  {
+        for (int j = 0; j < _num_of_module; j++) {
+            _p_spi_buffer[(j * 2) + 0] = _InitCmd[i][0];
+            _p_spi_buffer[(j * 2) + 1] = _InitCmd[i][1];
+        }
+        _send_to_matrix();
+    }
+    delay(100);
+#endif
     memset (_p_fb, 0x00, _fb_size);
     update();
 }
@@ -124,6 +136,8 @@ void lib_matrix::_send_to_matrix ()
 {
     if (_p_spi_buffer && _spi_send_bytes)
         SPI.transfer(_p_spi_buffer, _spi_send_bytes);
+
+    delay(1);
 }
 
 //------------------------------------------------------------------------------
@@ -145,6 +159,7 @@ lib_matrix::lib_matrix (int x_dots, int y_dots, const unsigned char *matrix_tabl
     if ((_p_matrix_table = new unsigned char[_num_of_module])!= NULL) {
         for (int i = 0; i < _num_of_module; i++) {
             _p_matrix_table[i] = (matrix_table != NULL) ? matrix_table[i] : i;
+//            _p_matrix_table[i] = i;
         }
     }
     // Send to Matrix buffer via SPI. Data format [Address, Data] * num of module

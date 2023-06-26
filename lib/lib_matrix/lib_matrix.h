@@ -33,7 +33,8 @@ private:
         /* Decode mode : No decode for digits 7-0(dot matrix led) */
         {0x09,0x00},
         /* dot led bright 0x0f(max) = 0.5W/ea */
-        {0x0a,0x08},
+//        {0x0a,0x08},
+        {0x0a,0x01},
         /* scan limit : 8 line enable */
         {0x0b,0x07},
         /* shutdown : normal operation (D0 = 1) */
